@@ -8,11 +8,13 @@ from market_sim.api.schemas import (
     MarketSimulationRequest,
     SimulationStatus,
     MarketType,
-    StorageType
+    StorageType,
+    MarkovJumpSimulationRequest
 )
 from market_sim.config.config_manager import ConfigManager
 from market_sim.models.gbm_model import GBMModel
 from market_sim.models.jump_diffusion_model import JumpDiffusionModel
+from market_sim.models.gbm_jd_model import GBM_JD_Model
 from market_sim.models.options import generate_option_chain
 from market_sim.storage.storage_interface import StorageInterface
 from market_sim.storage.local_storage import LocalStorage
@@ -27,7 +29,9 @@ class SimulationService:
         """Create appropriate model based on market type"""
         if market_type in [MarketType.VOLATILE]:
             return JumpDiffusionModel(self._config)
-        return GBMModel(self._config)
+        elif market_type in [MarketType.GBM]:
+            return GBMModel(self._config)
+        return GBM_JD_Model(self._config)
     
     def _get_storage(self, storage_type: StorageType) -> StorageInterface:
         """Get storage implementation based on type"""
@@ -71,6 +75,34 @@ class SimulationService:
                 return False
                 
         return True
+    
+    async def start_market_data_simulation(
+        self,
+        simulation_id: str,
+        params: MarkovJumpSimulationRequest
+    ) -> str:
+        """
+        Start a new market simulation with the given parameters.
+        Returns the storage path where results will be saved.
+        """
+        self._simulations[simulation_id] = SimulationStatus(
+            simulation_id=simulation_id,
+            status="running",
+            progress=0.0
+        )
+        try:
+            # Create model based on market type
+            model = self._create_model(market_type="DEFAULT")
+            index_data, options_data = model.simulate(
+                params=params
+            )
+
+            ## TBD: Save Index, Options Data
+
+        except Exception as e:
+            self._simulations[simulation_id].status = "failed"
+            self._simulations[simulation_id].error_message = str(e)
+            raise
     
     async def start_simulation(
         self,
