@@ -62,30 +62,6 @@ async def simulate_market_data(request: MarkovJumpSimulationRequest):
             simulation_id=simulation_id,
             params=request
         )
-        # model = create_model(params.market_type)
-        
-        # # Set up default drift values if not provided
-        # if params.drift is None:
-        #     if params.market_type == MarketType.BULLISH:
-        #         params.drift = 0.10
-        #     elif params.market_type == MarketType.BEARISH:
-        #         params.drift = -0.10
-        #     else:
-        #         params.drift = 0
-                
-        # # Run simulation until valid price series found
-        # for _ in range(3):
-        #     prices = self._run_single_simulation(model, params.initial_value, params.drift, 
-        #                                        params.volatility, params.days)
-        #     if self._validate_single_simulation_data(prices, params.market_type):
-        #         data_frame = pd.DataFrame({
-        #             "date": pd.date_range(date.today(), periods=params.days),
-        #             "price": prices
-        #         })
-                
-        #         return SimulationResponse(data=data_frame.to_dict("records"))
-            
-        # If after 3 attempts still no valid series found
         raise HTTPException(status_code=500, detail="Could not generate valid simulation data with given parameters")
         
     except Exception as e:
