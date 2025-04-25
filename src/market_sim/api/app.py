@@ -1,12 +1,13 @@
 import uuid
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-from market_sim.api.schemas import (
+from src.market_sim.api.schemas import (
     MarketSimulationRequest,
     SimulationResponse,
-    SimulationStatus
+    SimulationStatus,
+    MarkovJumpSimulationRequest
 )
-from market_sim.api.simulation_service import SimulationService
+from src.market_sim.api.simulation_service import SimulationService
 
 app = FastAPI(
     title="Market Data Simulation API",
@@ -51,3 +52,20 @@ async def get_simulation_status(simulation_id: str):
             detail=f"Simulation {simulation_id} not found"
         )
     return status
+
+@app.post("/api/v1/simulate/market_data", response_model=SimulationResponse)
+async def simulate_market_data(request: MarkovJumpSimulationRequest):
+    """Simulates market data based on provided parameters"""
+    simulation_id = str(uuid.uuid4())
+    try:
+        storage_path = await simulation_service.start_market_data_simulation(
+            simulation_id=simulation_id,
+            params=request
+        )
+        raise HTTPException(status_code=500, detail="Could not generate valid simulation data with given parameters")
+        
+    except Exception as e:
+        return JSONResponse(
+            status_code=422,
+            content={"message": str(e)}
+        )

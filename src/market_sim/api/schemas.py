@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator, conlist
 
 
 class MarketType(str, Enum):
@@ -8,6 +8,7 @@ class MarketType(str, Enum):
     BEARISH = "BEARISH"
     VOLATILE = "VOLATILE"
     RANGE_BOUND = "RANGE_BOUND"
+    GBM = "GBM"
 
 
 class StorageType(str, Enum):
@@ -94,3 +95,38 @@ class SimulationStatus(BaseModel):
     progress: Optional[float] = None
     error_message: Optional[str] = None
     storage_path: Optional[str] = None
+
+
+
+class Regime(BaseModel):
+    name: str = Field(..., min_length=1)
+    mu: float = Field(...)
+    sigma: float = Field(..., gt=0)
+    theta: float = Field(...)
+
+class MarkovJumpSimulationRequest(BaseModel):
+    initial_value: float = Field(..., gt=0)
+    time_period_days: int = Field(..., gt=0)
+    storage_type: str = Field(...)
+    output_path: str = Field(..., min_length=1)
+
+    transition_matrix: list[conlist(float, min_length=1)] = Field(...)
+    regimes: list[Regime] = Field(...)
+    steps: int = Field(..., gt=0)
+    lambda_jump: float = Field(..., gt=0)
+    mu_jump: float = Field(...)
+    sigma_jump: float = Field(..., gt=0)
+
+    @model_validator(mode="after")
+    def check_matrix_and_regimes(cls, m: "MarkovJumpSimulationRequest"):
+        matrix = m.transition_matrix
+        regimes = m.regimes
+        n = len(matrix)
+        if any(len(row) != n for row in matrix):
+            raise ValueError("transition_matrix must be square (n × n)")
+        for i, row in enumerate(matrix):
+            if abs(sum(row) - 1.0) > 1e-6:
+                raise ValueError(f"Row {i} must sum to 1")
+        if len(regimes) != n:
+            raise ValueError("Number of regimes must equal matrix dimension")
+        return m
