@@ -88,6 +88,24 @@ class SimulationResponse(BaseModel):
         description="Path where simulation results are stored"
     )
 
+class SimulateMarketDataResponse(BaseModel):
+    simulation_id: str = Field(
+        ...,
+        description="Unique identifier for the simulation"
+    )
+    status: str = Field(
+        ...,
+        description="Status of the simulation"
+    )
+    index_csv: Optional[list] = Field(
+        default=None,
+        description="Path where simulated Index results are stored"
+    )
+    options_csv: Optional[list] = Field(
+        default=None,
+        description="Path where simulated Options results are stored"
+    )
+
 
 class SimulationStatus(BaseModel):
     simulation_id: str

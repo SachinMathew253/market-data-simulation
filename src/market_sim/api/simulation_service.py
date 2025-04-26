@@ -11,6 +11,7 @@ from market_sim.api.schemas import (
     StorageType,
     MarkovJumpSimulationRequest
 )
+from market_sim.api.simulate_pcr import simulate_oi_movement
 from market_sim.config.config_manager import ConfigManager
 from market_sim.models.gbm_model import GBMModel
 from market_sim.models.jump_diffusion_model import JumpDiffusionModel
@@ -18,6 +19,7 @@ from market_sim.models.gbm_jd_model import GBM_JD_Model
 from market_sim.models.options import generate_option_chain
 from market_sim.storage.storage_interface import StorageInterface
 from market_sim.storage.local_storage import LocalStorage
+from market_sim.storage.gcs_storage import GCSStorage
 
 
 class SimulationService:
@@ -36,8 +38,7 @@ class SimulationService:
     def _get_storage(self, storage_type: StorageType) -> StorageInterface:
         """Get storage implementation based on type"""
         if storage_type == StorageType.GCS:
-            # TODO: Implement GCS storage
-            raise NotImplementedError("GCS storage not implemented yet")
+            return GCSStorage(self._config)
         return LocalStorage(self._config)
     
     def _validate_simulation_data(self, prices: np.ndarray, market_type: MarketType) -> bool:
@@ -80,7 +81,7 @@ class SimulationService:
         self,
         simulation_id: str,
         params: MarkovJumpSimulationRequest
-    ) -> str:
+    ) -> tuple[list, list]:
         """
         Start a new market simulation with the given parameters.
         Returns the storage path where results will be saved.
@@ -97,7 +98,32 @@ class SimulationService:
                 params=params
             )
 
-            ## TBD: Save Index, Options Data
+            # Add Simulated OI
+            try:
+                options_data = simulate_oi_movement(index_data, options_data)
+            except Exception as e:
+                print(f"Error simulating OI movement: {e}")
+                raise
+
+            # Store results
+            index_data_csv: list = index_data.to_dict(orient='records')
+            options_data_csv: list = options_data.to_dict(orient='records')
+            # Save index data
+            storage = self._get_storage(params.storage_type)
+            index_storage_path = f"{simulation_id}_index_data.csv"
+            storage.save(index_storage_path, index_data)
+            print(f"Index data saved to {index_storage_path}")
+
+            options_storage_path = f"{simulation_id}_options_data.csv"
+            storage.save(options_storage_path, options_data)
+            print(f"Options data saved to {options_storage_path}")
+            
+            # Update simulation status
+            self._simulations[simulation_id].status = "completed"
+            self._simulations[simulation_id].progress = 100.0
+
+            # Return storage path
+            return (index_data_csv, options_data_csv)
 
         except Exception as e:
             self._simulations[simulation_id].status = "failed"
@@ -227,3 +253,4 @@ class SimulationService:
     def get_status(self, simulation_id: str) -> Optional[SimulationStatus]:
         """Get the current status of a simulation"""
         return self._simulations.get(simulation_id)
+    

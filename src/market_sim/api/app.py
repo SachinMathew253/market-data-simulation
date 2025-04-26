@@ -3,6 +3,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from src.market_sim.api.schemas import (
     MarketSimulationRequest,
+    SimulateMarketDataResponse,
     SimulationResponse,
     SimulationStatus,
     MarkovJumpSimulationRequest
@@ -53,16 +54,22 @@ async def get_simulation_status(simulation_id: str):
         )
     return status
 
-@app.post("/api/v1/simulate/market_data", response_model=SimulationResponse)
+@app.post("/api/v1/simulate/market_data", response_model=SimulateMarketDataResponse)
 async def simulate_market_data(request: MarkovJumpSimulationRequest):
     """Simulates market data based on provided parameters"""
     simulation_id = str(uuid.uuid4())
     try:
-        storage_path = await simulation_service.start_market_data_simulation(
+        index_csv, options_csv = await simulation_service.start_market_data_simulation(
             simulation_id=simulation_id,
             params=request
         )
-        raise HTTPException(status_code=500, detail="Could not generate valid simulation data with given parameters")
+        
+        return SimulateMarketDataResponse(
+            simulation_id=simulation_id,
+            status="success",
+            index_csv=index_csv,
+            options_csv=options_csv
+        )
         
     except Exception as e:
         return JSONResponse(
