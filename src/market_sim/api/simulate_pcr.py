@@ -182,7 +182,7 @@ def simulate_oi_movement(index, original_options):
     options = initialize_option_chain_oi(options, start_index_value)
 
     # Preprocess dates and times
-    options['ExpiryDate'] = pd.to_datetime(options['ExpiryDate'], dayfirst=True, format='%d-%m-%Y') + pd.Timedelta(hours=15, minutes=29)
+    options['ExpiryDate'] = pd.to_datetime(options['ExpiryDate'], dayfirst=True, format='%Y-%m-%d') + pd.Timedelta(hours=15, minutes=29)
     options['time_to_expiry'] = (options['ExpiryDate'] - options['DateTime']).dt.total_seconds() / 60
 
     # Sort data

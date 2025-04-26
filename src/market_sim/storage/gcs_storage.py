@@ -1,18 +1,20 @@
+import io
 from typing import Any, Dict, Union
 import pandas as pd
 from google.cloud import storage
-from .storage_interface import StorageInterface
-
+from market_sim.storage.storage_interface import StorageInterface
+from google.auth import default
 
 class GCSStorage(StorageInterface):
     """Google Cloud Storage implementation"""
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self):
         """Initialize GCS storage with config"""
-        super().__init__(config)
-        self.client = storage.Client()
+        # initialize GCS client with default credentials
+        credentials, project = default()
+        self.client = storage.Client(credentials=credentials, project=project)
         self.base_path = "MASTER/NIFTY50/simulated"
-        self.bucket_name = self._config.get("gcs_bucket", "quant_research_data_test")
+        self.bucket_name = "quant_research_data_test"
 
     def save(self, filepath: str, data: Union[pd.DataFrame, Any]) -> str:
         """Save data to GCS bucket"""
@@ -24,7 +26,13 @@ class GCSStorage(StorageInterface):
         # Create a blob and upload the file
         blob = bucket.blob(full_path)
         if isinstance(data, pd.DataFrame):
-            blob.upload_from_string(data.to_pickle(index=True))
+            # Serialize the DataFrame to a bytes buffer using pickle
+            buffer = io.BytesIO()
+            data.to_pickle(buffer)
+            buffer.seek(0)  # Move to the start of the buffer
+
+            # Upload the pickle data to the specified file path
+            blob.upload_from_file(buffer, content_type='application/octet-stream')
         else:
             blob.upload_from_string(str(data))
         

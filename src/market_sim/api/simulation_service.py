@@ -38,7 +38,7 @@ class SimulationService:
     def _get_storage(self, storage_type: StorageType) -> StorageInterface:
         """Get storage implementation based on type"""
         if storage_type == StorageType.GCS:
-            return GCSStorage(self._config)
+            return GCSStorage()
         return LocalStorage(self._config)
     
     def _validate_simulation_data(self, prices: np.ndarray, market_type: MarketType) -> bool:
@@ -99,16 +99,37 @@ class SimulationService:
             )
 
             # Add Simulated OI
-            try:
-                options_data = simulate_oi_movement(index_data, options_data)
-            except Exception as e:
-                print(f"Error simulating OI movement: {e}")
-                raise
+            # try:
+            #     options_data = simulate_oi_movement(index_data, options_data)
+            # except Exception as e:
+            #     print(f"Error simulating OI movement: {e}")
+            #     raise
 
             # Store results
             index_data_csv: list = index_data.to_dict(orient='records')
             options_data_csv: list = options_data.to_dict(orient='records')
+
             # Save index data
+            index_data["Date"] = index_data["DateTime"].dt.strftime("%Y%m%d").astype(int)
+            index_data["Time"] = index_data["DateTime"].dt.strftime("%H:%M").astype(str)
+            index_data["Volume"] = 0
+            index_data["Ticker"] = "NIFTY50"
+            
+            
+            formatted = options_data['DateTime'].dt.strftime('%d%b%y')
+            options_data['Ticker'] = ('NIFTY'+ options_data['Strike'].astype(str)+ formatted + options_data['StrikeType'].astype(str))
+            options_data[["Open", "High", "Low", "OI"]] = 0.0
+            options_data["Volume"] = 0
+            options_data["Date"] = options_data["DateTime"].dt.strftime("%Y%m%d").astype(int)
+            options_data["Time"] = options_data["DateTime"].dt.strftime("%H:%M").astype(str)
+            options_data["ExpiryDate"] = pd.to_datetime(options_data["ExpiryDate"], format="%Y-%m-%d").dt.strftime("%d-%m-%Y").astype(str)
+            options_data.rename(columns={
+                "Strike": "StrikePrice",
+                "DateTime": "DateTime",
+                "StrikeType": "OptionType",
+            }, inplace=True)
+            options_data = options_data[["Date", "Time", "Open", "High", "Low", "Close",  "Volume", "OI", "Ticker", "ExpiryDate", "StrikePrice", "OptionType", "Delta", "Close_index"]]
+
             storage = self._get_storage(params.storage_type)
             index_storage_path = f"{simulation_id}_index_data.csv"
             storage.save(index_storage_path, index_data)
